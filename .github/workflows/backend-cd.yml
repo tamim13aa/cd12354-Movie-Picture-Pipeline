@@ -1,5 +1,4 @@
 name: Backend CD
-
 on:
   push:
     branches: [ main ]
@@ -8,80 +7,49 @@ on:
       - '.github/workflows/backend-cd.yml'
   workflow_dispatch:
 
-concurrency:
-  group: backend-cd
-  cancel-in-progress: true
+concurrency: { group: backend-cd, cancel-in-progress: true }
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: starter/backend
+    defaults: { run: { working-directory: starter/backend } }
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install pipenv
-        run: pip install pipenv
-
-      - name: Install deps
-        run: pipenv install --dev
-
-      - name: Lint
-        run: pipenv run lint
-
-      - name: Test
-        run: pipenv run test
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.10' }
+      - run: pip install pipenv
+      - run: pipenv install --dev
+      - run: pipenv run lint
+      - run: pipenv run test
 
   build:
     runs-on: ubuntu-latest
     needs: test
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build image
-        run: docker build -t ${{ vars.BACKEND_ECR }}:${{ github.sha }} starter/backend
-
-      - name: Push image
-        run: docker push ${{ vars.BACKEND_ECR }}:${{ github.sha }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - run: docker build -t ${{ vars.BACKEND_ECR }}:${{ github.sha }} starter/backend
+      - run: docker push ${{ vars.BACKEND_ECR }}:${{ github.sha }}
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Update kubeconfig
-        run: aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.CLUSTER_NAME }}
-
-      - name: Install kustomize
-        uses: imranismail/setup-kustomize@v2
-        with:
-          kustomize-version: '5.4.1'
-
-      - name: Set image tag and apply
+      - run: aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.CLUSTER_NAME }}
+      - uses: imranismail/setup-kustomize@v2
+        with: { kustomize-version: '5.4.1' }
+      - name: Set image and apply
         working-directory: starter/backend/k8s
         run: |
           kustomize edit set image backend=${{ vars.BACKEND_ECR }}:${{ github.sha }}
