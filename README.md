@@ -16,4 +16,4 @@ powershell
 aws eks --region us-east-1 update-kubeconfig --name cluster
 curl.exe "http://a51902b8268ea463399d12a10dd1f6bc-962640512.us-east-1.elb.amazonaws.com/movies"
 
-note: i think this all u asked for and a picture i'll provied down
+note: i think this all u asked for
